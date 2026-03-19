@@ -5,6 +5,8 @@
 
 Custom integration for Home Assistant that connects to Zagonel smart showers (Ducali Smart Banho) via cloud API, exposing shower usage sensors.
 
+![Sensors](images/sensors.png)
+
 ---
 
 **[Portugues](#portugues)** | **[English](#english)**
