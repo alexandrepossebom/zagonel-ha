@@ -1,0 +1,21 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Zagonel Smart Banho",
+        "description": "Entre com suas credenciais do app Ducali Smart Banho.",
+        "data": {
+          "email": "E-mail",
+          "password": "Senha"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "E-mail ou senha inv\u00e1lidos.",
+      "cannot_connect": "N\u00e3o foi poss\u00edvel conectar aos servidores da Zagonel."
+    },
+    "abort": {
+      "already_configured": "Esta conta j\u00e1 est\u00e1 configurada."
+    }
+  }
+}

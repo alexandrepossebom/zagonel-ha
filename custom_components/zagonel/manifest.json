@@ -1,0 +1,11 @@
+{
+  "domain": "zagonel",
+  "name": "Zagonel Smart Shower",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/alexandrepossebom/homeassistant-zagonel",
+  "iot_class": "cloud_polling",
+  "requirements": ["httpx>=0.24.0"],
+  "version": "0.1.0"
+}

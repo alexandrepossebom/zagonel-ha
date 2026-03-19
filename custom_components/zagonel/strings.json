@@ -1,0 +1,21 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Zagonel Smart Shower",
+        "description": "Enter your Ducali Smart Banho credentials.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid email or password.",
+      "cannot_connect": "Unable to connect to Zagonel servers."
+    },
+    "abort": {
+      "already_configured": "This account is already configured."
+    }
+  }
+}
