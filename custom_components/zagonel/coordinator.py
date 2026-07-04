@@ -125,6 +125,7 @@ class ZagonelCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             result[shower_id] = {
                 "shower": shower,
                 "measures": measures,
+                "month_start": month_start,
             }
 
         return result

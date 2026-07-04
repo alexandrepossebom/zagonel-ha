@@ -275,6 +275,14 @@ class ZagonelSensorEntity(CoordinatorEntity[ZagonelCoordinator], SensorEntity):
         )
 
     @property
+    def last_reset(self) -> datetime | None:
+        """Monthly totals reset on the 1st — tell HA so change isn't negative."""
+        if not self.entity_description.key.startswith("monthly_"):
+            return None
+        data = self.coordinator.data.get(self._shower_id)
+        return data.get("month_start") if data else None
+
+    @property
     def native_value(self) -> Any:
         """Return the sensor value."""
         data = self.coordinator.data.get(self._shower_id)
