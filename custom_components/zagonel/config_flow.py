@@ -48,7 +48,7 @@ class ZagonelConfigFlow(ConfigFlow, domain=DOMAIN):
                     data = resp.json()
             except httpx.HTTPStatusError:
                 errors["base"] = "invalid_auth"
-            except (httpx.ConnectError, httpx.TimeoutException):
+            except httpx.TransportError:
                 errors["base"] = "cannot_connect"
             else:
                 await self.async_set_unique_id(email.lower())

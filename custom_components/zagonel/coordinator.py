@@ -69,8 +69,10 @@ class ZagonelCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             data = resp.json()
         except httpx.HTTPStatusError as err:
             raise ConfigEntryAuthFailed("Login credentials expired") from err
-        except (httpx.ConnectError, httpx.TimeoutException) as err:
-            raise UpdateFailed("Cannot connect to Zagonel API") from err
+        except httpx.TransportError as err:
+            raise UpdateFailed(
+                f"Cannot connect to Zagonel API: {type(err).__name__} on login"
+            ) from err
 
         self._token = data["token"]
         self._energy_price = data.get("energyPrice", self._energy_price)
@@ -83,22 +85,41 @@ class ZagonelCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch showers and measurements from the API."""
         try:
-            return await self._fetch_data()
-        except httpx.HTTPStatusError as err:
-            if err.response.status_code == 401:
+            try:
+                return await self._fetch_data()
+            except httpx.HTTPStatusError as err:
+                if err.response.status_code != 401:
+                    raise
                 await self._async_re_authenticate()
                 return await self._fetch_data()
-            raise UpdateFailed(f"API error: {err.response.status_code}") from err
-        except (httpx.ConnectError, httpx.TimeoutException) as err:
-            raise UpdateFailed("Cannot connect to Zagonel API") from err
+        except httpx.HTTPStatusError as err:
+            raise UpdateFailed(
+                f"API error: {err.response.status_code} on {err.request.url.path}"
+            ) from err
+        except httpx.TransportError as err:
+            raise UpdateFailed(
+                f"Cannot connect to Zagonel API: {type(err).__name__}"
+                f" on {err.request.url.path}"
+            ) from err
+
+    async def _async_get_json(self, path: str) -> Any:
+        """GET a JSON resource, retrying once if the server drops the connection."""
+        client = await self._async_get_client()
+        try:
+            resp = await client.get(path, headers=self._headers)
+        except httpx.RemoteProtocolError:
+            # atalho: a single retry; the server sometimes closes the reused
+            # keep-alive connection without answering. Backoff loop if not enough.
+            _LOGGER.debug("Server dropped the connection on %s, retrying once", path)
+            resp = await client.get(path, headers=self._headers)
+        resp.raise_for_status()
+        return resp.json()
 
     async def _fetch_data(self) -> dict[str, Any]:
         """Perform the actual API calls."""
-        # Get showers
-        client = await self._async_get_client()
-        resp = await client.get(f"/showers/user/{self._user_id}", headers=self._headers)
-        resp.raise_for_status()
-        showers = resp.json().get("showers", [])
+        showers = (await self._async_get_json(f"/showers/user/{self._user_id}")).get(
+            "showers", []
+        )
 
         # Timestamp for first day of current month
         now = datetime.now(tz=timezone.utc)
@@ -109,11 +130,9 @@ class ZagonelCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         for shower in showers:
             shower_id = shower["id"]
-            resp = await client.get(
-                f"/measures/shower/{shower_id}/{ts_start}", headers=self._headers
+            measures_raw = await self._async_get_json(
+                f"/measures/shower/{shower_id}/{ts_start}"
             )
-            resp.raise_for_status()
-            measures_raw = resp.json()
             if isinstance(measures_raw, dict):
                 measures_raw = measures_raw.get("measures", [])
 
