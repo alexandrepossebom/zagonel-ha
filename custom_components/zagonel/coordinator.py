@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import BASE_URL, SCAN_INTERVAL, parse_measure
+from .const import BASE_URL, MAX_CONSECUTIVE_FAILURES, SCAN_INTERVAL, parse_measure
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,6 +38,7 @@ class ZagonelCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._user_id: str = entry.data["userId"]
         self._energy_price: float = entry.data.get("energyPrice", 0)
         self._water_price: float = entry.data.get("waterPrice", 0)
+        self._failures = 0
 
     @property
     def _headers(self) -> dict[str, str]:
@@ -83,6 +84,24 @@ class ZagonelCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.hass.config_entries.async_update_entry(self.config_entry, data=new_data)
 
     async def _async_update_data(self) -> dict[str, Any]:
+        """Fetch new data, keeping the previous data on isolated failures."""
+        try:
+            data = await self._async_fetch()
+        except UpdateFailed as err:
+            self._failures += 1
+            if self.data is None or self._failures >= MAX_CONSECUTIVE_FAILURES:
+                raise
+            _LOGGER.warning(
+                "Update failed (%s of %s in a row), keeping previous data: %s",
+                self._failures,
+                MAX_CONSECUTIVE_FAILURES,
+                err,
+            )
+            return self.data
+        self._failures = 0
+        return data
+
+    async def _async_fetch(self) -> dict[str, Any]:
         """Fetch showers and measurements from the API."""
         try:
             try:
@@ -103,15 +122,9 @@ class ZagonelCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ) from err
 
     async def _async_get_json(self, path: str) -> Any:
-        """GET a JSON resource, retrying once if the server drops the connection."""
+        """GET a JSON resource from the API."""
         client = await self._async_get_client()
-        try:
-            resp = await client.get(path, headers=self._headers)
-        except httpx.RemoteProtocolError:
-            # atalho: a single retry; the server sometimes closes the reused
-            # keep-alive connection without answering. Backoff loop if not enough.
-            _LOGGER.debug("Server dropped the connection on %s, retrying once", path)
-            resp = await client.get(path, headers=self._headers)
+        resp = await client.get(path, headers=self._headers)
         resp.raise_for_status()
         return resp.json()
 

@@ -5,6 +5,9 @@ from datetime import timedelta
 DOMAIN = "zagonel"
 BASE_URL = "https://appsmartbanho.zagonel.com.br/api"
 SCAN_INTERVAL = timedelta(minutes=10)
+# Failed updates in a row that keep the previous data before entities go
+# unavailable. Observed API failures were isolated single ticks.
+MAX_CONSECUTIVE_FAILURES = 3
 
 MANUFACTURER = "Zagonel"
 MODEL = "Ducali Smart"
